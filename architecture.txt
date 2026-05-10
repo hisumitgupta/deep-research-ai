@@ -1,0 +1,49 @@
+User Query
+    │
+    ▼
+┌─────────────────┐
+│  Planner Agent  │ ← breaks query into 5-8 sub-questions
+└────────┬────────┘
+         │
+    ┌────▼─────────────────────────────────┐
+    │         Parallel Research Layer      │
+    │  ┌──────────┐  ┌──────────┐         │
+    │  │  Web     │  │  News    │         │
+    │  │  Agent   │  │  Agent   │         │
+    │  └──────────┘  └──────────┘         │
+    │  ┌──────────┐  ┌──────────┐         │
+    │  │  Paper   │  │ YouTube  │         │
+    │  │  Agent   │  │  Agent   │         │
+    │  └──────────┘  └──────────┘         │
+    │  ┌──────────┐  ┌──────────┐         │
+    │  │ GitHub   │  │  Exa     │         │
+    │  │  Agent   │  │  Agent   │         │
+    │  └──────────┘  └──────────┘         │
+    └────────────────┬─────────────────────┘
+                     │
+                     ▼
+         ┌───────────────────┐
+         │   Merger Node     │ ← deduplicates and ranks sources
+         └─────────┬─────────┘
+                   │
+                   ▼
+         ┌───────────────────┐
+         │  Quality Checker  │ ← checks if enough sources found
+         └─────────┬─────────┘
+                   │
+            enough? │ no → search more
+                   │ yes
+                   ▼
+         ┌───────────────────┐
+         │  Synthesis Agent  │ ← writes the final report
+         └─────────┬─────────┘
+                   │
+                   ▼
+         ┌───────────────────┐
+         │   Critic Agent    │ ← scores, triggers rewrite if needed
+         └─────────┬─────────┘
+                   │
+                   ▼
+         ┌───────────────────┐
+         │  Publisher Agent  │ ← formats for terminal, later for web/social
+         └───────────────────┘

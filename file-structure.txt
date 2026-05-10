@@ -1,0 +1,65 @@
+deep_research/
+│
+├── .env                        ← all API keys
+├── requirements.txt            ← all packages
+│
+├── core/
+│   ├── state.py               ← shared state schema
+│   ├── models.py              ← LLM initialization (Groq + Gemini)
+│   └── config.py              ← all settings in one place
+│
+├── tools/
+│   ├── web_search.py          ← Tavily web search
+│   ├── news_search.py         ← NewsAPI
+│   ├── paper_search.py        ← ArXiv API (free)
+│   ├── youtube_search.py      ← YouTube transcript API (free)
+│   ├── github_search.py       ← GitHub API (free)
+│   ├── exa_search.py          ← Exa.ai (1000 free/month)
+│   └── scraper.py             ← Firecrawl / BeautifulSoup fallback
+│
+├── agents/
+│   ├── planner.py             ← breaks query into sub-questions
+│   ├── researcher.py          ← parallel research nodes
+│   ├── merger.py              ← deduplication + ranking
+│   ├── quality_checker.py     ← checks research completeness
+│   ├── synthesizer.py         ← writes the final report
+│   ├── critic.py              ← scores and triggers rewrites
+│   └── publisher.py           ← formats output (terminal/markdown/social)
+│
+├── graph/
+│   ├── research_subgraph.py   ← parallel research as a subgraph
+│   └── pipeline.py            ← main LangGraph pipeline
+│
+├── mcp/
+│   └── servers.py             ← MCP server connections (later)
+│
+├── output/
+│   └── reports/               ← saved research reports
+│
+└── main.py                    ← entry point
+
+
+
+
+your_project/
+│
+├── core/
+│   ├── supabase_client.py     ← NEW: Supabase connection
+│   ├── auth.py                ← NEW: login/signup logic  
+│   ├── rate_limiter.py        ← NEW: per-user rate limiting
+│   └── social.py              ← NEW: Twitter + LinkedIn posting
+│
+├── agents/
+│   └── publisher.py           ← UPDATE: add social posting
+│
+├── mcp/
+│   └── servers.py             ← NEW: MCP server connections
+│
+├── pages/
+│   └── login.py               ← removed: auth is inline in app.py
+│
+├── app.py                     ← UPDATE: auth gates + share buttons
+├── render.yaml                ← NEW: deployment config
+├── requirements.txt           ← UPDATE: new packages
+├── .env.example               ← NEW: template for all keys
+└── README.md                  ← NEW: setup guide
