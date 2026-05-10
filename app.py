@@ -1100,6 +1100,10 @@ with left:
     with c3:
         stop_btn = st.button("Stop", key="stop_btn", disabled=not st.session_state.running)
 
+    if st.session_state.show_auth_gate and not user:
+        render_auth_gate()
+        st.stop()
+
     if st.session_state.running:
         st.markdown(f"""
         <div class="loading-strip">
@@ -1174,10 +1178,6 @@ with left:
 # RIGHT — Results
 # ════════════════════════════════════════
 with right:
-    if st.session_state.show_auth_gate and not user:
-        render_auth_gate()
-        st.stop()
-
     if st.session_state.pending_query and user and not st.session_state.running and not st.session_state.result:
         st.success("You are signed in. Continue your saved research query.")
         st.info(f"Pending query: {st.session_state.pending_query}")
