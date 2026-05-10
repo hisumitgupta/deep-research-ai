@@ -746,7 +746,8 @@ html, body, [data-testid="stAppViewContainer"] {
     .topnav { align-items:flex-start; flex-direction:column; }
     .nav-tag { text-align:left; }
     .hero-shell { grid-template-columns:1fr; }
-    .hero-stats, .metric-row, .empty-grid, .source-grid { grid-template-columns:1fr; }
+    .hero-stats, .metric-row, .empty-grid { grid-template-columns:1fr; }
+    .source-section { display:none; }
     .hero-main { min-height:auto; }
     .report-wrap { max-height:none; padding:1.25rem; }
     .empty-state { min-height:auto; padding:1.25rem; }
@@ -1163,7 +1164,7 @@ with left:
 
     # Source legend
     st.markdown("""
-    <div style="margin-top:0.25rem">
+    <div class="source-section" style="margin-top:0.25rem">
     <div style="font-family:'JetBrains Mono',monospace;font-size:0.58rem;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;margin-bottom:0.4rem;">Sources searched</div>
     <div class="source-grid">
         <div class="source-card"><span class="pill p-web">Web</span><br>Tavily plus Exa search</div>
