@@ -10,6 +10,7 @@ from core.rate_limiter import (
     check_rate_limit,
     get_user_stats
 )
+from core.feedback import save_user_feedback
 from core.research_jobs import (
     cancel_research_job,
     get_research_job,
@@ -37,6 +38,7 @@ for k, v in {
     "current_job_id": "", "loading_message": "",
     "query_prefill": "",
     "top_notice": "",
+    "feedback_notice": "",
 }.items():
     if k not in st.session_state:
         st.session_state[k] = v
@@ -529,6 +531,57 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 .feedback-box strong { color:#fbbf24; }
 
+.user-feedback-callout {
+    margin: 0.85rem 0 1rem 0;
+    padding: 1rem 1.15rem;
+    border: 1px solid rgba(34,211,238,0.18);
+    border-radius: 12px;
+    background:
+        linear-gradient(135deg, rgba(34,211,238,0.08), rgba(20,184,166,0.04)),
+        rgba(15,23,42,0.72);
+}
+.user-feedback-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #f8fafc;
+    margin-bottom: 0.25rem;
+}
+.user-feedback-copy {
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: #94a3b8;
+}
+.user-feedback-copy a {
+    color: #67e8f9;
+    text-decoration: none;
+    font-weight: 700;
+}
+.user-feedback-copy a:hover { text-decoration: underline; }
+.feedback-label {
+    color: #e2e8f0;
+    font-size: 0.82rem;
+    font-weight: 700;
+    margin: 0.8rem 0 0.3rem;
+}
+.feedback-helper {
+    color: #64748b;
+    font-size: 0.74rem;
+    margin-top: -0.2rem;
+    margin-bottom: 0.3rem;
+}
+.feedback-stars {
+    color: #fbbf24;
+    font-size: 1.35rem;
+    letter-spacing: 0.08rem;
+    margin: 0.15rem 0 0.55rem;
+}
+.feedback-stars span {
+    color: #94a3b8;
+    font-size: 0.8rem;
+    letter-spacing: 0;
+    margin-left: 0.5rem;
+}
+
 /* ── SUBQ ── */
 .subq {
     padding:0.4rem 0.75rem;
@@ -852,6 +905,98 @@ def render_auth_gate() -> None:
 
 
 # ── NAV ───────────────────────────────────────────────────────────
+def render_user_feedback_form(user: dict | None, user_id: str | None) -> None:
+    if st.session_state.feedback_notice:
+        st.success(st.session_state.feedback_notice)
+        st.session_state.feedback_notice = ""
+
+    st.markdown("""
+    <div class="user-feedback-callout">
+        <div class="user-feedback-title">Help shape this research product</div>
+        <div class="user-feedback-copy">
+            Share what you liked, what felt confusing, and what would make this more useful for your startup research workflow.
+            You can also email feedback directly at
+            <a href="mailto:sumitgupta00716@gmail.com">sumitgupta00716@gmail.com</a>.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.expander("Open quick feedback form", expanded=False):
+        st.markdown('<div class="feedback-label">Overall experience</div>', unsafe_allow_html=True)
+        rating_options = ["★", "★★", "★★★", "★★★★", "★★★★★"]
+        rating_choice = st.radio(
+            "Overall experience",
+            rating_options,
+            index=3,
+            horizontal=True,
+            key="fb_rating_stars",
+            label_visibility="collapsed",
+        )
+        rating = len(rating_choice)
+        st.markdown(
+            f'<div class="feedback-stars">{"★" * rating}{"☆" * (5 - rating)}<span>{rating}/5</span></div>',
+            unsafe_allow_html=True,
+        )
+
+        st.markdown('<div class="feedback-label">What did you like?</div>', unsafe_allow_html=True)
+        st.markdown('<div class="feedback-helper">Example: source quality, report format, speed, UI, or startup usefulness.</div>', unsafe_allow_html=True)
+        liked = st.text_area(
+            "What did you like?",
+            key="fb_liked",
+            height=80,
+            placeholder="The report was easy to scan and the sources felt useful...",
+            label_visibility="collapsed",
+        )
+
+        st.markdown('<div class="feedback-label">What did not work well?</div>', unsafe_allow_html=True)
+        st.markdown('<div class="feedback-helper">Tell us where the product felt slow, confusing, shallow, or wrong.</div>', unsafe_allow_html=True)
+        disliked = st.text_area(
+            "What did not work well?",
+            key="fb_disliked",
+            height=80,
+            placeholder="The answer missed competitor details, or the UI was hard to understand...",
+            label_visibility="collapsed",
+        )
+
+        st.markdown('<div class="feedback-label">What should we improve or add?</div>', unsafe_allow_html=True)
+        improvement = st.text_area(
+            "What should we improve or add?",
+            key="fb_improvement",
+            height=90,
+            placeholder="Add report history, export options, better source filters, team workspace...",
+            label_visibility="collapsed",
+        )
+
+        contact_ok = st.checkbox("You can contact me about this feedback", key="fb_contact_ok")
+        st.markdown('<div class="feedback-label">Email</div>', unsafe_allow_html=True)
+        feedback_email = st.text_input(
+            "Email",
+            value=user.get("email", "") if user else "",
+            key="fb_email",
+            placeholder="you@example.com",
+            label_visibility="collapsed",
+        )
+
+        if st.button("Send feedback", key="send_feedback_btn", disabled=st.session_state.running):
+            if not any([liked.strip(), disliked.strip(), improvement.strip()]):
+                st.warning("Please write at least one feedback detail.")
+            else:
+                feedback_result = save_user_feedback(
+                    user_id,
+                    feedback_email,
+                    rating,
+                    liked,
+                    disliked,
+                    improvement,
+                    contact_ok,
+                )
+                if feedback_result["success"]:
+                    st.session_state.feedback_notice = "Thanks. Your feedback was saved."
+                    st.rerun()
+                else:
+                    st.error(feedback_result["error"])
+
+
 user_stats = get_user_stats(user_id) if user_id else {"runs_remaining": "Free"}
 runs_left = user_stats["runs_remaining"]
 
@@ -910,6 +1055,8 @@ st.markdown(f"""
     </div>
 </section>
 """, unsafe_allow_html=True)
+
+render_user_feedback_form(user, user_id)
 
 if user:
     _, logout_col = st.columns([6, 1])
@@ -1022,7 +1169,6 @@ with left:
         <div class="source-card"><span class="pill p-gh">GitHub</span><br>Repos and READMEs</div>
     </div>
     </div>""", unsafe_allow_html=True)
-
 
 # ════════════════════════════════════════
 # RIGHT — Results
