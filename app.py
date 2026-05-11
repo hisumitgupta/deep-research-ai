@@ -4,10 +4,10 @@ import re
 import markdown
 from datetime import datetime
 from core.env_check import check_env_keys, format_missing_env_message
-from core.auth import current_user, login_user, logout_user, signup_user
 from core.rate_limiter import (
     init_rate_limit_db,
     check_rate_limit,
+    get_or_create_visitor_id,
     get_user_stats
 )
 from core.feedback import save_user_feedback
@@ -26,7 +26,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-user = current_user()
+user = None
 
 
 # ── SESSION STATE ─────────────────────────────────────────────────
@@ -34,7 +34,6 @@ for k, v in {
     "result": None, "running": False,
     "query": "", "progress": [],
     "start_time": None, "error": None,
-    "pending_query": "", "show_auth_gate": False,
     "current_job_id": "", "loading_message": "",
     "query_prefill": "",
     "top_notice": "",
@@ -52,7 +51,7 @@ elif "query_input" not in st.session_state:
 
 init_rate_limit_db()
 
-user_id = user["id"] if user else None
+user_id = get_or_create_visitor_id()
 
 active_job = get_research_job(st.session_state.get("current_job_id"))
 if active_job:
@@ -61,8 +60,6 @@ if active_job:
 
     if job_status in {"running", "cancel_requested"}:
         st.session_state.running = True
-        st.session_state.pending_query = ""
-        st.session_state.show_auth_gate = False
         st.session_state.loading_message = (
             "Stopping after the current step..."
             if job_status == "cancel_requested"
@@ -852,57 +849,6 @@ def render_report(md_text: str) -> str:
     return html
 
 
-def render_auth_gate() -> None:
-    pending_query = st.session_state.get("pending_query", "").strip()
-
-    st.markdown("""
-    <div class="search-panel">
-        <div style="font-size:1rem;font-weight:700;color:#f8fafc;margin-bottom:0.35rem">
-            Create a free account to run this research
-        </div>
-        <div style="font-size:0.82rem;color:#94a3b8;line-height:1.6">
-            Your query is saved. Login or create a free account to continue.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    if pending_query:
-        st.info(f"Pending query: {pending_query}")
-
-    tab_login, tab_signup = st.tabs(["Login", "Create account"])
-
-    with tab_login:
-        email = st.text_input("Email", key="login_email")
-        password = st.text_input("Password", type="password", key="login_password")
-
-        if st.button("Login", key="inline_login_btn"):
-            result = login_user(email=email, password=password)
-            if result["success"]:
-                st.session_state.show_auth_gate = False
-                st.success("Login successful. You can continue your research.")
-                st.rerun()
-            else:
-                st.error(result["error"])
-
-    with tab_signup:
-        name = st.text_input("Full name", key="signup_name")
-        phone = st.text_input("Phone", key="signup_phone")
-        email = st.text_input("Email", key="signup_email")
-        password = st.text_input("Password", type="password", key="signup_password")
-
-        if st.button("Create account", key="inline_signup_btn"):
-            result = signup_user(
-                email=email,
-                password=password,
-                name=name,
-                phone=phone,
-            )
-            if result["success"]:
-                st.session_state.show_auth_gate = False
-                st.success("Account created. You are signed in and can continue your research.")
-                st.rerun()
-            else:
-                st.error(result["error"])
 
 
 # ── NAV ───────────────────────────────────────────────────────────
@@ -983,7 +929,7 @@ def render_user_feedback_form(user: dict | None, user_id: str | None) -> None:
                 st.warning("Please write at least one feedback detail.")
             else:
                 feedback_result = save_user_feedback(
-                    user_id,
+                    user_id if user else None,
                     feedback_email,
                     rating,
                     liked,
@@ -1001,17 +947,11 @@ def render_user_feedback_form(user: dict | None, user_id: str | None) -> None:
 user_stats = get_user_stats(user_id) if user_id else {"runs_remaining": "Free"}
 runs_left = user_stats["runs_remaining"]
 
-nav_status = (
-    f"{runs_left} reports left today | signed in"
-    if user else
-    "Free account required only when you run research"
-)
+nav_status = f"{runs_left} reports left in this 5-hour window"
 hero_status = (
-    f"Signed in as {user.get('email', 'researcher')}. Your daily limit is stored in Supabase."
-    if user else
-    "You can test chat-style prompts first. When you run real research, the app asks you to create or login to a free account."
+    "No account needed. You can generate up to 5 research reports every 5 hours from this browser."
 )
-hero_chip = f"Daily runs left: {runs_left}" if user else "No login needed for greetings"
+hero_chip = f"Runs left: {runs_left}/5"
 
 st.markdown(f"""
 <div class="topnav">
@@ -1038,7 +978,7 @@ st.markdown(f"""
             </div>
         </div>
         <div class="hero-stats">
-            <div class="hero-stat"><strong>5</strong><span>free research runs per day</span></div>
+            <div class="hero-stat"><strong>5</strong><span>research reports per 5 hours</span></div>
             <div class="hero-stat"><strong>11</strong><span>agent pipeline steps</span></div>
             <div class="hero-stat"><strong>5</strong><span>source families checked</span></div>
         </div>
@@ -1058,13 +998,6 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 render_user_feedback_form(user, user_id)
-
-if user:
-    _, logout_col = st.columns([6, 1])
-    with logout_col:
-        if st.button("Logout", key="top_logout", disabled=st.session_state.running):
-            logout_user()
-            st.rerun()
 
 left, right = st.columns([1, 2], gap="large")
 stop_btn = False
@@ -1100,10 +1033,6 @@ with left:
         clear_btn = st.button("Clear", key="clear_btn", disabled=st.session_state.running)
     with c3:
         stop_btn = st.button("Stop", key="stop_btn", disabled=not st.session_state.running)
-
-    if st.session_state.show_auth_gate and not user:
-        render_auth_gate()
-        st.stop()
 
     if st.session_state.running:
         st.markdown(f"""
@@ -1179,41 +1108,6 @@ with left:
 # RIGHT — Results
 # ════════════════════════════════════════
 with right:
-    if st.session_state.pending_query and user and not st.session_state.running and not st.session_state.result:
-        st.success("You are signed in. Continue your saved research query.")
-        st.info(f"Pending query: {st.session_state.pending_query}")
-        if st.button("Continue research", key="continue_pending_query"):
-            intent = classify_intent(st.session_state.pending_query)
-            if intent["intent"] == "chat":
-                st.session_state.result = {
-                    "report": intent["reply"],
-                    "source_count": 0,
-                    "score": 0,
-                    "feedback": "",
-                    "all_sources": [],
-                    "sub_questions": [],
-                    "output_path": "",
-                }
-                st.session_state.query = st.session_state.pending_query
-                st.session_state.pending_query = ""
-                st.session_state.show_auth_gate = False
-                st.session_state.running = False
-                st.session_state.error = None
-                st.rerun()
-
-            st.session_state.query = st.session_state.pending_query
-            st.session_state.pending_query = ""
-            st.session_state.show_auth_gate = False
-            st.session_state.current_job_id = start_research_job(st.session_state.query, user_id)
-            st.session_state.running = True
-            st.session_state.result = None
-            st.session_state.error = None
-            st.session_state.progress = []
-            st.session_state.loading_message = "Research agents are starting..."
-            st.session_state.start_time = time.time()
-            st.rerun()
-        st.stop()
-
     # ── EMPTY ─────────────────────────────────────────────────────
     if not st.session_state.result and not st.session_state.running:
         if st.session_state.error:
@@ -1396,8 +1290,8 @@ if stop_btn:
 
 if clear_btn:
     cancel_research_job(st.session_state.get("current_job_id"))
-    for k in ["result","running","query","query_input","query_prefill","progress","error","start_time","pending_query","show_auth_gate","current_job_id","loading_message","top_notice"]:
-        st.session_state[k] = None if k in ["result","error","start_time"] else ([] if k == "progress" else (False if k in ["running","show_auth_gate"] else ""))
+    for k in ["result","running","query","query_input","query_prefill","progress","error","start_time","current_job_id","loading_message","top_notice"]:
+        st.session_state[k] = None if k in ["result","error","start_time"] else ([] if k == "progress" else (False if k == "running" else ""))
     st.rerun()
 
 if run_btn and query.strip():
@@ -1434,12 +1328,6 @@ if run_btn and query.strip():
         st.session_state.loading_message = ""
         st.rerun()
 
-    if not user:
-        st.session_state.pending_query = query.strip()
-        st.session_state.query = query.strip()
-        st.session_state.show_auth_gate = True
-        st.rerun()
-
     limit_check = check_rate_limit(user_id)
 
     if not limit_check["allowed"]:
@@ -1452,8 +1340,6 @@ if run_btn and query.strip():
         st.session_state.error      = None
         st.session_state.progress   = []
         st.session_state.query      = query.strip()
-        st.session_state.pending_query = ""
-        st.session_state.show_auth_gate = False
         st.session_state.loading_message = "Research agents are starting..."
         st.session_state.start_time = time.time()
         st.rerun()
