@@ -84,6 +84,14 @@ if active_job:
         st.session_state.loading_message = ""
         st.session_state.current_job_id = ""
 
+elif st.session_state.get("running") and st.session_state.get("current_job_id"):
+    st.session_state.running = False
+    st.session_state.current_job_id = ""
+    st.session_state.loading_message = ""
+    st.session_state.error = (
+        "The previous research run was interrupted. Please try again with a fresh search."
+    )
+
 
 
 # ── CSS ──────────────────────────────────────────────────────────
@@ -1347,9 +1355,16 @@ with right:
 
 # ── ACTIONS ───────────────────────────────────────────────────────
 if stop_btn:
-    cancel_research_job(st.session_state.get("current_job_id"))
-    st.session_state.loading_message = "Stopping after the current step..."
-    st.session_state.error = "Stop requested. Waiting for the current step to finish."
+    current_job_id = st.session_state.get("current_job_id")
+    if current_job_id and get_research_job(current_job_id):
+        cancel_research_job(current_job_id)
+        st.session_state.loading_message = "Stopping after the current step..."
+        st.session_state.error = "Stop requested. Waiting for the current step to finish."
+    else:
+        st.session_state.running = False
+        st.session_state.current_job_id = ""
+        st.session_state.loading_message = ""
+        st.session_state.error = "Research was already stopped. You can start a fresh search."
     st.rerun()
 
 if clear_btn:
