@@ -59,11 +59,16 @@ if active_job:
     st.session_state.progress = active_job.get("progress", [])
 
     if job_status in {"running", "cancel_requested"}:
+        elapsed = time.time() - active_job.get("created_at", time.time())
         st.session_state.running = True
         st.session_state.loading_message = (
             "Stopping after the current step..."
             if job_status == "cancel_requested"
-            else "Research agents are working..."
+            else (
+                "This is taking longer than usual. Try a more specific question if it does not finish soon."
+                if elapsed > 90
+                else "Research agents are working..."
+            )
         )
 
     elif job_status == "completed":
@@ -172,17 +177,33 @@ html, body, [data-testid="stAppViewContainer"] {
 }
 .search-title { color:#f8fafc; font-size:1rem; font-weight:700; margin-bottom:0.25rem; }
 .search-hint { color:#64748b; font-size:0.78rem; line-height:1.55; margin-bottom:0.8rem; }
-[data-testid="stTextArea"] textarea {
-    background: #080b12 !important;
-    border: 1.5px solid rgba(148,163,184,0.15) !important;
-    border-radius: 10px !important; color: #e2e8f0 !important;
-    font-family: 'Inter', sans-serif !important; font-size: 0.9rem !important;
-    padding: 0.75rem !important; transition: border-color 0.15s !important;
-    resize: none !important; line-height: 1.6 !important;
+.search-input-label {
+    display:flex; align-items:center; justify-content:space-between; gap:0.75rem;
+    margin:0.75rem 0 0.35rem;
 }
+.search-input-label strong { color:#e2e8f0; font-size:0.86rem; }
+.search-input-label span {
+    color:#64748b; font-family:'JetBrains Mono',monospace; font-size:0.58rem;
+    letter-spacing:0.08em; text-transform:uppercase;
+}
+.search-action-note { color:#94a3b8; font-size:0.74rem; line-height:1.5; margin:0.45rem 0 0.7rem; }
+[data-testid="stTextArea"] textarea {
+    background: linear-gradient(180deg,#f8fafc,#e2e8f0) !important;
+    border: 2px solid rgba(34,211,238,0.55) !important;
+    border-radius: 12px !important; color: #0f172a !important;
+    font-family: 'Inter', sans-serif !important; font-size: 0.95rem !important;
+    padding: 0.9rem !important; transition: border-color 0.15s, box-shadow 0.15s !important;
+    resize: none !important; line-height: 1.6 !important;
+    box-shadow: 0 12px 34px rgba(14,165,233,0.16) !important;
+    caret-color: #0f766e !important;
+    cursor: text !important;
+}
+[data-testid="stTextArea"] textarea::placeholder { color:#64748b !important; opacity:1 !important; }
 [data-testid="stTextArea"] textarea:focus {
-    border-color: rgba(56,189,248,0.55) !important;
-    box-shadow: 0 0 0 3px rgba(56,189,248,0.08) !important;
+    border-color: rgba(20,184,166,0.95) !important;
+    background: #ffffff !important;
+    box-shadow: 0 0 0 4px rgba(45,212,191,0.22), 0 18px 46px rgba(14,165,233,0.28) !important;
+    outline: none !important;
 }
 [data-testid="stTextArea"] label { display: none !important; }
 
@@ -554,6 +575,7 @@ html, body, [data-testid="stAppViewContainer"] {
     font-weight: 700;
 }
 .user-feedback-copy a:hover { text-decoration: underline; }
+.mobile-feedback-callout { display:none; }
 .feedback-label {
     color: #e2e8f0;
     font-size: 0.82rem;
@@ -739,13 +761,28 @@ html, body, [data-testid="stAppViewContainer"] {
 .source-card .pill { margin-bottom:0.35rem; }
 
 @media (max-width: 920px) {
-    .block-container { padding: 1rem !important; }
+    .block-container { padding: 0.75rem !important; }
     .topnav { align-items:flex-start; flex-direction:column; }
     .nav-tag { text-align:left; }
-    .hero-shell { grid-template-columns:1fr; }
+    .hero-shell { grid-template-columns:1fr; margin-bottom:0.65rem; }
     .hero-stats, .metric-row, .empty-grid { grid-template-columns:1fr; }
     .source-section { display:none; }
-    .hero-main { min-height:auto; }
+    .hero-main { min-height:auto; padding:0.9rem; }
+    .hero-title { font-size:1.45rem; line-height:1.15; }
+    .hero-copy, .hero-side, .user-feedback-callout { display:none; }
+    .mobile-feedback-callout {
+        display:block;
+        margin:0.65rem 0 0.75rem;
+        padding:0.75rem 0.85rem;
+        border:1px solid rgba(34,211,238,0.18);
+        border-radius:10px;
+        background:rgba(15,23,42,0.72);
+    }
+    .mobile-feedback-callout .user-feedback-title { font-size:0.86rem; }
+    .mobile-feedback-callout .user-feedback-copy { font-size:0.74rem; line-height:1.45; }
+    div[data-testid="stExpander"] { display:none; }
+    .example-section { display:none; }
+    .search-panel { padding:0.95rem; margin-bottom:0.75rem; }
     .report-wrap { max-height:none; padding:1.25rem; }
     .empty-state { min-height:auto; padding:1.25rem; }
 }
@@ -868,6 +905,17 @@ def render_user_feedback_form(user: dict | None, user_id: str | None) -> None:
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown("""
+    <div class="mobile-feedback-callout">
+        <div class="user-feedback-title">Feedback</div>
+        <div class="user-feedback-copy">
+            Help improve this product. Send feedback directly at
+            <a href="mailto:sumitgupta00716@gmail.com">sumitgupta00716@gmail.com</a>.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="feedback-form-wrap">', unsafe_allow_html=True)
     with st.expander("Open quick feedback form", expanded=False):
         st.markdown('<div class="feedback-label">Overall experience</div>', unsafe_allow_html=True)
         rating_options = ["★", "★★", "★★★", "★★★★", "★★★★★"]
@@ -942,6 +990,7 @@ def render_user_feedback_form(user: dict | None, user_id: str | None) -> None:
                     st.rerun()
                 else:
                     st.error(feedback_result["error"])
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 user_stats = get_user_stats(user_id) if user_id else {"runs_remaining": "Free"}
@@ -1009,30 +1058,44 @@ stop_btn = False
 with left:
 
     st.markdown("""
+    <div class="search-panel">
     <div class="workspace-label">Research brief</div>
     <div class="search-title">Ask a question that deserves sources.</div>
     <div class="search-hint">
         Use a specific market, product, technology, competitor, or policy question.
         Short greetings will be answered as chat without using your research limit.
     </div>
+    <div class="search-input-label">
+        <strong>Research question</strong>
+        <span>Required</span>
+    </div>
     """, unsafe_allow_html=True)
 
     query = st.text_area(
         "q",
-        placeholder="Example: What is the opportunity for AI research agents in Indian startup teams in 2026?",
-        height=120, key="query_input", label_visibility="collapsed"
+        placeholder="Type your research question here. Example: Compare Dhan vs Zerodha for beginner investors in India.",
+        height=130, key="query_input", label_visibility="collapsed"
     )
+
+    st.markdown("""
+    <div class="search-action-note">
+        Write a clear research topic, then click Run research. Use Stop only when a report is already running.
+    </div>
+    """, unsafe_allow_html=True)
 
     c1, c2, c3 = st.columns([2, 1, 1])
     with c1:
         run_btn   = st.button(
-            "Start research" if not st.session_state.running else "Running...",
-            disabled=st.session_state.running, key="run_btn"
+            "Run research" if not st.session_state.running else "Running...",
+            disabled=st.session_state.running, key="run_btn",
+            help="Enter a research question first."
         )
     with c2:
-        clear_btn = st.button("Clear", key="clear_btn", disabled=st.session_state.running)
+        clear_btn = st.button("Clear", key="clear_btn", disabled=st.session_state.running, help="Clear the current question and result.")
     with c3:
-        stop_btn = st.button("Stop", key="stop_btn", disabled=not st.session_state.running)
+        stop_btn = st.button("Stop", key="stop_btn", disabled=not st.session_state.running, help="Stop the current research run.")
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
     if st.session_state.running:
         st.markdown(f"""
@@ -1046,20 +1109,20 @@ with left:
         """, unsafe_allow_html=True)
 
     # Example queries
-    st.markdown('<div style="font-family:\'JetBrains Mono\',monospace;font-size:0.58rem;letter-spacing:0.12em;text-transform:uppercase;color:#1e2d3d;margin-bottom:0.35rem;">Quick examples</div>', unsafe_allow_html=True)
-    examples = [
-        "AI research agents market map for startups",
-        "Best free stack for an AI SaaS MVP",
-        "LangGraph vs CrewAI for production agents",
-    ]
-    for i, ex in enumerate(examples):
-        if st.button(ex, key=f"ex_{i}", disabled=st.session_state.running):
-            st.session_state.query = ex
-            st.session_state.query_prefill = ex
-            st.rerun()
+    with st.expander("Try examples", expanded=False):
+        examples = [
+            "AI research agents market map for startups",
+            "Best free stack for an AI SaaS MVP",
+            "LangGraph vs CrewAI for production agents",
+        ]
+        for i, ex in enumerate(examples):
+            if st.button(ex, key=f"ex_{i}", disabled=st.session_state.running):
+                st.session_state.query = ex
+                st.session_state.query_prefill = ex
+                st.rerun()
 
     # Progress tracker
-    if st.session_state.running or st.session_state.result:
+    if st.session_state.running:
         st.markdown('<div style="height:0.75rem"></div>', unsafe_allow_html=True)
         steps = [
             ("Planner",         "Sub-questions"),
@@ -1132,12 +1195,13 @@ with right:
 
     # ── RUNNING ───────────────────────────────────────────────────
     elif st.session_state.running:
-        st.markdown("""
+        running_message = st.session_state.get("loading_message") or "The agents are collecting sources and preparing your report."
+        st.markdown(f"""
         <div class="empty-state">
             <div class="empty-icon">Pipeline running</div>
             <div class="empty-title">Building your research brief...</div>
             <div class="empty-text">
-                The agents are collecting sources, comparing evidence, and preparing a structured answer.
+                {running_message}
                 This can take a little time for broad questions.
                 <div class="loading-strip">
                     <div class="loading-row">
@@ -1292,6 +1356,10 @@ if clear_btn:
     cancel_research_job(st.session_state.get("current_job_id"))
     for k in ["result","running","query","query_input","query_prefill","progress","error","start_time","current_job_id","loading_message","top_notice"]:
         st.session_state[k] = None if k in ["result","error","start_time"] else ([] if k == "progress" else (False if k == "running" else ""))
+    st.rerun()
+
+if run_btn and not query.strip():
+    st.session_state.top_notice = "Please type a research question first."
     st.rerun()
 
 if run_btn and query.strip():

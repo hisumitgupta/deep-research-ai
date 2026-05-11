@@ -14,6 +14,7 @@ from core.security import safe_exception
 
 JOBS: dict[str, dict] = {}
 JOBS_LOCK = threading.Lock()
+JOB_TIMEOUT_SECONDS = 5 * 60
 
 PROGRESS_LABELS = [
     "Planner",
@@ -101,6 +102,21 @@ def _run_job(job_id: str, query: str, user_id: str | None, cancel_event: threadi
         for state in pipeline.stream(final_state, config=config, stream_mode="values"):
             if cancel_event.is_set():
                 _update_job(job_id, status="cancelled", error="Research stopped by user.")
+                return
+
+            if time.time() - JOBS[job_id]["created_at"] > JOB_TIMEOUT_SECONDS:
+                timeout_message = "Research is taking too long. Please try again with a more specific question."
+                if final_state.get("report") or final_state.get("all_sources"):
+                    _update_job(
+                        job_id,
+                        status="completed",
+                        progress=_progress_from_state(final_state),
+                        result=final_state,
+                        error="Research took too long, so a partial result was returned.",
+                        completed_at=time.time(),
+                    )
+                else:
+                    _update_job(job_id, status="failed", error=timeout_message)
                 return
 
             if isinstance(state, dict):
