@@ -35,6 +35,7 @@ for k, v in {
     "query": "", "progress": [],
     "start_time": None, "error": None,
     "current_job_id": "", "loading_message": "",
+    "job_mode": "",
     "query_prefill": "",
     "top_notice": "",
     "feedback_notice": "",
@@ -56,6 +57,7 @@ user_id = get_or_create_visitor_id()
 active_job = get_research_job(st.session_state.get("current_job_id"))
 if active_job:
     job_status = active_job.get("status")
+    st.session_state.job_mode = active_job.get("mode", "")
     st.session_state.progress = active_job.get("progress", [])
 
     if job_status in {"running", "cancel_requested"}:
@@ -195,6 +197,24 @@ html, body, [data-testid="stAppViewContainer"] {
     letter-spacing:0.08em; text-transform:uppercase;
 }
 .search-action-note { color:#94a3b8; font-size:0.74rem; line-height:1.5; margin:0.45rem 0 0.7rem; }
+.mode-label {
+    font-family:'JetBrains Mono',monospace;
+    font-size:0.58rem;
+    letter-spacing:0.1em;
+    text-transform:uppercase;
+    color:#64748b;
+    margin:0.85rem 0 0.45rem;
+}
+.mode-helper {
+    border:1px solid rgba(34,211,238,0.16);
+    border-radius:10px;
+    padding:0.7rem 0.8rem;
+    background:rgba(8,13,22,0.72);
+    color:#94a3b8;
+    font-size:0.75rem;
+    line-height:1.5;
+    margin:0.45rem 0 0.75rem;
+}
 [data-testid="stTextArea"] textarea {
     background: linear-gradient(180deg,#f8fafc,#e2e8f0) !important;
     border: 2px solid rgba(34,211,238,0.55) !important;
@@ -222,19 +242,50 @@ html, body, [data-testid="stAppViewContainer"] {
     padding: 0.55rem 1rem !important; transition: all 0.15s !important;
     width: 100% !important; border: none !important;
 }
-[data-testid="stButton"]:first-child > button {
+[data-testid="stButton"] > button[kind="primary"],
+[data-testid="stBaseButton-primary"] {
     background: linear-gradient(135deg,#0284c7,#0f766e) !important; color:#fff !important;
+    box-shadow: 0 10px 26px rgba(14,165,233,0.24) !important;
 }
-[data-testid="stButton"]:first-child > button:hover {
+[data-testid="stButton"] > button[kind="primary"]:hover,
+[data-testid="stBaseButton-primary"]:hover {
     box-shadow: 0 4px 18px rgba(14,165,233,0.3) !important;
     transform: translateY(-1px) !important;
 }
-[data-testid="stButton"]:not(:first-child) > button {
+[data-testid="stButton"] > button[kind="secondary"],
+[data-testid="stBaseButton-secondary"] {
     background: rgba(255,255,255,0.04) !important; color: #64748b !important;
     border: 1px solid rgba(255,255,255,0.07) !important;
 }
-[data-testid="stButton"]:not(:first-child) > button:hover {
+[data-testid="stButton"] > button[kind="secondary"]:hover,
+[data-testid="stBaseButton-secondary"]:hover {
     background: rgba(255,255,255,0.07) !important; color: #e2e8f0 !important;
+}
+
+[data-testid="stRadio"] div[role="radiogroup"] {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:0.55rem;
+}
+[data-testid="stRadio"] label {
+    background:rgba(2,6,23,0.32);
+    border:1px solid rgba(148,163,184,0.14);
+    border-radius:10px;
+    padding:0.65rem 0.75rem;
+    margin:0 !important;
+    accent-color:#14b8a6;
+}
+[data-testid="stRadio"] input[type="radio"] {
+    accent-color:#14b8a6 !important;
+}
+[data-testid="stRadio"] label:hover {
+    border-color:rgba(34,211,238,0.36);
+    background:rgba(14,165,233,0.08);
+}
+[data-testid="stRadio"] label:has(input:checked) {
+    border-color:rgba(45,212,191,0.62);
+    background:linear-gradient(135deg,rgba(14,165,233,0.18),rgba(15,118,110,0.18));
+    box-shadow:0 10px 28px rgba(14,165,233,0.12);
 }
 
 /* ── STEPS ── */
@@ -790,9 +841,46 @@ html, body, [data-testid="stAppViewContainer"] {
     .mobile-feedback-callout .user-feedback-copy { font-size:0.74rem; line-height:1.45; }
     div[data-testid="stExpander"] { display:none; }
     .example-section { display:none; }
-    .search-panel { padding:0.95rem; margin-bottom:0.75rem; }
-    .report-wrap { max-height:none; padding:1.25rem; }
-    .empty-state { min-height:auto; padding:1.25rem; }
+    [data-testid="stVerticalBlock"] { gap:0.5rem !important; }
+    .search-panel { padding:0.85rem; margin-bottom:0.5rem; }
+    .search-title { font-size:0.95rem; }
+    .search-hint { font-size:0.74rem; margin-bottom:0.55rem; }
+    .search-action-note { display:none; }
+    .mode-label { margin:0.55rem 0 0.35rem; }
+    .mode-helper {
+        display:none;
+    }
+    [data-testid="stTextArea"] textarea {
+        min-height:105px !important;
+        height:105px !important;
+        padding:0.75rem !important;
+    }
+    [data-testid="stRadio"] div[role="radiogroup"] {
+        grid-template-columns:1fr 1fr;
+        gap:0.45rem;
+    }
+    [data-testid="stRadio"] label {
+        padding:0.55rem 0.6rem;
+        min-height:46px;
+    }
+    [data-testid="stButton"] > button {
+        min-height:46px !important;
+        padding:0.5rem 0.85rem !important;
+    }
+    .report-wrap {
+        max-height:none;
+        padding:1.25rem;
+        margin-top:-2.25rem;
+    }
+    .empty-state {
+        min-height:190px;
+        padding:1rem;
+        justify-content:flex-start;
+        margin-top:-2.25rem;
+    }
+    .empty-title { font-size:1.2rem; line-height:1.25; margin-bottom:0.45rem; }
+    .empty-text { font-size:0.82rem; line-height:1.55; }
+    .empty-grid { display:none; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -1057,7 +1145,9 @@ st.markdown(f"""
 render_user_feedback_form(user, user_id)
 
 left, right = st.columns([1, 2], gap="large")
+start_btn = False
 stop_btn = False
+clear_btn = False
 
 
 # ════════════════════════════════════════
@@ -1087,21 +1177,46 @@ with left:
 
     st.markdown("""
     <div class="search-action-note">
-        Write a clear research topic, then click Run research. Use Stop only when a report is already running.
+        Choose the depth first, then start. Quick is best for everyday questions; Deep is best for serious reports.
     </div>
+    <div class="mode-label">Choose research mode</div>
     """, unsafe_allow_html=True)
 
-    c1, c2, c3 = st.columns([2, 1, 1])
-    with c1:
-        run_btn   = st.button(
-            "Run research" if not st.session_state.running else "Running...",
-            disabled=st.session_state.running, key="run_btn",
-            help="Enter a research question first."
-        )
-    with c2:
+    selected_mode = st.radio(
+        "Research mode",
+        ["Quick Research", "Deep Research"],
+        horizontal=True,
+        key="research_mode_choice",
+        label_visibility="collapsed",
+    )
+    is_deep_mode = selected_mode == "Deep Research"
+    st.markdown(
+        f"""<div class="mode-helper">{
+            "Full agent workflow: web, news, papers, YouTube, GitHub, critic review, and a longer report."
+            if is_deep_mode
+            else "Fast path: web and news only, then a concise AI summary."
+        }</div>""",
+        unsafe_allow_html=True,
+    )
+
+    start_btn = st.button(
+        "Start Deep Research" if is_deep_mode else "Start Quick Research",
+        disabled=st.session_state.running,
+        key="start_research_btn",
+        help="Start research using the selected mode.",
+        type="primary",
+    )
+
+    can_clear = bool(query.strip() or st.session_state.get("result") or st.session_state.get("error"))
+
+    if st.session_state.running:
+        c3, c4 = st.columns(2)
+        with c3:
+            clear_btn = st.button("Clear", key="clear_btn", disabled=True, help="Clear after the current run stops.")
+        with c4:
+            stop_btn = st.button("Stop", key="stop_btn", help="Stop the current research run.")
+    elif can_clear:
         clear_btn = st.button("Clear", key="clear_btn", disabled=st.session_state.running, help="Clear the current question and result.")
-    with c3:
-        stop_btn = st.button("Stop", key="stop_btn", disabled=not st.session_state.running, help="Stop the current research run.")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -1133,6 +1248,9 @@ with left:
     if st.session_state.running:
         st.markdown('<div style="height:0.75rem"></div>', unsafe_allow_html=True)
         steps = [
+            ("Web/news search", "Fast source collection"),
+            ("Quick synthesis", "Writing short brief"),
+        ] if st.session_state.get("job_mode") == "quick" else [
             ("Planner",         "Sub-questions"),
             ("Research agents", "Web + news + papers + video + code"),
             ("Quality gate",    "Source check"),
@@ -1369,15 +1487,18 @@ if stop_btn:
 
 if clear_btn:
     cancel_research_job(st.session_state.get("current_job_id"))
-    for k in ["result","running","query","query_input","query_prefill","progress","error","start_time","current_job_id","loading_message","top_notice"]:
+    for k in ["result","running","query","query_input","query_prefill","progress","error","start_time","current_job_id","loading_message","top_notice","job_mode"]:
         st.session_state[k] = None if k in ["result","error","start_time"] else ([] if k == "progress" else (False if k == "running" else ""))
     st.rerun()
 
-if run_btn and not query.strip():
+research_mode = "deep" if st.session_state.get("research_mode_choice") == "Deep Research" else "quick"
+research_clicked = start_btn
+
+if research_clicked and not query.strip():
     st.session_state.top_notice = "Please type a research question first."
     st.rerun()
 
-if run_btn and query.strip():
+if research_clicked and query.strip():
     st.session_state.result = None
     st.session_state.error = None
     st.session_state.top_notice = ""
@@ -1417,13 +1538,18 @@ if run_btn and query.strip():
         st.session_state.top_notice = f"⏳ {limit_check['reason']}"
         st.rerun()
     else:
-        st.session_state.current_job_id = start_research_job(query.strip(), user_id)
+        st.session_state.current_job_id = start_research_job(query.strip(), user_id, mode=research_mode)
         st.session_state.running    = True
         st.session_state.result     = None
         st.session_state.error      = None
         st.session_state.progress   = []
         st.session_state.query      = query.strip()
-        st.session_state.loading_message = "Research agents are starting..."
+        st.session_state.job_mode   = research_mode
+        st.session_state.loading_message = (
+            "Quick Research is searching web and news..."
+            if research_mode == "quick"
+            else "Deep Research agents are starting..."
+        )
         st.session_state.start_time = time.time()
         st.rerun()
 

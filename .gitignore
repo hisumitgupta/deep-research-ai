@@ -17,6 +17,8 @@ output/
 reports/
 *.log
 
+docs/AWS_UPDATE_NOTES.md
+
 __pycache__/
 *.pyc
 .pytest_cache/

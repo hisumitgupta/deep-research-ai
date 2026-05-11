@@ -25,6 +25,11 @@ PROGRESS_LABELS = [
     "Publisher",
 ]
 
+QUICK_PROGRESS_LABELS = [
+    "Web/news search",
+    "Quick synthesis",
+]
+
 
 def _base_state(query: str) -> dict:
     return {
@@ -85,6 +90,36 @@ def _update_job(job_id: str, **updates) -> None:
             return
         job.update(updates)
         job["updated_at"] = time.time()
+
+
+def _run_quick_job(job_id: str, query: str, cancel_event: threading.Event) -> None:
+    try:
+        from core.quick_research import run_quick_research
+
+        _update_job(job_id, progress=["Web/news search"])
+
+        if cancel_event.is_set():
+            _update_job(job_id, status="cancelled", error="Research stopped by user.")
+            return
+
+        result = run_quick_research(query)
+
+        if cancel_event.is_set():
+            _update_job(job_id, status="cancelled", error="Research stopped by user.")
+            return
+
+        _update_job(
+            job_id,
+            status="completed",
+            progress=QUICK_PROGRESS_LABELS.copy(),
+            result=result,
+            result_preview=result,
+            completed_at=time.time(),
+        )
+
+    except Exception as exc:
+        log_event("quick_research_job_failed", {"job_id": job_id, "query": query, "error": safe_exception(exc)})
+        _update_job(job_id, status="failed", error="Quick research failed. Please try again in a minute.")
 
 
 def _run_job(job_id: str, query: str, user_id: str | None, cancel_event: threading.Event) -> None:
@@ -155,7 +190,7 @@ def _run_job(job_id: str, query: str, user_id: str | None, cancel_event: threadi
             )
 
 
-def start_research_job(query: str, user_id: str | None) -> str:
+def start_research_job(query: str, user_id: str | None, mode: str = "deep") -> str:
     job_id = uuid.uuid4().hex
     cancel_event = threading.Event()
     initial_state = _base_state(query)
@@ -167,6 +202,7 @@ def start_research_job(query: str, user_id: str | None) -> str:
             "id": job_id,
             "query": query,
             "user_id": user_id,
+            "mode": mode,
             "status": "running",
             "progress": [],
             "result": None,
@@ -178,11 +214,18 @@ def start_research_job(query: str, user_id: str | None) -> str:
             "cancel_event": cancel_event,
         }
 
-    worker = threading.Thread(
-        target=_run_job,
-        args=(job_id, query, user_id, cancel_event),
-        daemon=True,
-    )
+    if mode == "quick":
+        worker = threading.Thread(
+            target=_run_quick_job,
+            args=(job_id, query, cancel_event),
+            daemon=True,
+        )
+    else:
+        worker = threading.Thread(
+            target=_run_job,
+            args=(job_id, query, user_id, cancel_event),
+            daemon=True,
+        )
     worker.start()
     return job_id
 
